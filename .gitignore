@@ -2,3 +2,14 @@
 __pycache__/
 *.pth
 *.pkl
+
+# Generated training data and outputs
+data/
+output_cells/
+cell_imgs.npy
+
+# Trained model artifacts
+models/
+
+# Streamlit cache and local metadata
+.streamlit/
