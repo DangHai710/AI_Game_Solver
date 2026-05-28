@@ -1,92 +1,100 @@
-# AI Game Solver
+# AI Game Solver - Sudoku
 
-Ứng dụng nhận diện và giải Sudoku bằng Computer Vision + CNN + Streamlit.
+Ung dung Streamlit dung OpenCV va CNN de quet anh Sudoku, cat 81 o, nhan dien chu so va giai bang Backtracking + MRV.
 
-## Tính năng
+## Cau truc
 
-- Quét bảng Sudoku từ camera
-- Tiền xử lý ảnh, tìm khung bảng và tách từng ô
-- Nhận diện chữ số bằng mô hình CNN
-- Giải Sudoku sau khi nhận diện xong
-- Hỗ trợ lưu ảnh ô số để gán nhãn và huấn luyện lại
+```text
+AI_Game_Solver/
+├─ app.py
+├─ sudoku.py
+├─ utils/
+│  └─ vision.py
+├─ data/
+│  ├─ label_0/
+│  └─ ...
+├─ models/
+│  ├─ train_cnn.py
+│  └─ cnn_sudoku.h5
+├─ save_cells.py
+├─ .gitignore
+├─ README.md
+├─ reports/
+│  ├─ bao_cao_sudoku.md
+│  └─ bao_cao_sudoku.docx
+└─ requirements.txt
+```
 
-## Cài đặt
-
-### 1. Tạo môi trường ảo
+## Cai dat
 
 ```bash
 python -m venv .venv
-```
-
-Kích hoạt môi trường ảo trên PowerShell:
-
-```bash
 .venv\Scripts\Activate.ps1
-```
-
-### 2. Cài thư viện
-
-```bash
 pip install -r requirements.txt
 ```
 
-Nếu máy bạn chưa có TensorFlow, cài thêm:
+## Chay web app
 
-```bash
-pip install tensorflow
-```
-
-## Chạy ứng dụng
-
-Sau khi có model trong `models/cnn_sudoku.h5`, chạy:
+Chay tren may tinh:
 
 ```bash
 streamlit run app.py
 ```
 
-## Huấn luyện lại model
-
-Nếu muốn train lại mô hình nhận diện số, chạy:
+Cho dien thoai cung Wi-Fi/LAN truy cap:
 
 ```bash
-python train_cnn.py
+streamlit run app.py --server.address 0.0.0.0 --server.port 8501
 ```
 
-Script này sẽ đọc dữ liệu trong `data/`, tăng cường ảnh, huấn luyện CNN và lưu model vào `models/cnn_sudoku.h5`.
+Mo dia chi LAN hien trong sidebar, vi du:
 
-## Gán nhãn dữ liệu mới
+```text
+http://192.168.x.x:8501
+```
 
-Ứng dụng có thể lưu các ô đã cắt ra vào `cell_imgs.npy`. Sau đó bạn có thể dùng:
+## Luong su dung
 
-- `save_cells.py` để lưu ảnh ô số vào các thư mục nhãn
-- `label_cells.py` để hỗ trợ gán nhãn thủ công
-- `add_image.py` để bổ sung thêm ảnh huấn luyện
+1. Tab `Chon anh de upload`: chon anh tu may tinh hoac dien thoai. Tren dien thoai, trinh duyet se cho chon chup anh moi hoac lay tu thu vien.
+2. Tab `Camera truc tiep`: dung camera truc tiep neu trinh duyet cho phep. Tren dien thoai co the bi chan neu app chay HTTP LAN.
+3. Sau khi co anh, app hien `Anh goc` va `81 o da cat`.
+4. App tu dong luu 81 o vao `cell_imgs.npy` va `output_cells/latest/cell_r_c.png`.
+5. Bam `Giai Sudoku` de hien board so da nhan dien va anh goc da dien cac so con thieu.
+6. Mo `Do tin cay tung o` de xem confidence phuc vu bao cao va debug.
 
-Ví dụ kiểm tra riêng dữ liệu của số 9:
+## Xu ly anh
+
+- `utils/vision.py` tim contour Sudoku bang threshold thich nghi va contour lon nhat co 4 dinh.
+- Bang duoc nan ve anh vuong `450x450`.
+- Moi o duoc cat theo luoi 9x9, sau do lay 80% vung trung tam de tranh dinh duong vien.
+- Anh o duoc threshold, loc connected component de loai nhieu, resize ve `28x28` cho CNN.
+
+## Gan nhan data
+
+Sau khi app tao `cell_imgs.npy`, chay:
 
 ```bash
-python visualize_label9.py
+python save_cells.py
 ```
 
-## Cấu trúc thư mục
+Bam phim `0-9` de luu o hien tai vao `data/label_x`, bam `Space` de bo qua, `ESC` de dung.
 
-- `app.py`: giao diện Streamlit để quét và giải Sudoku
-- `train_cnn.py`: huấn luyện mô hình CNN
-- `engines/sudoku.py`: thuật toán giải Sudoku
-- `utils/vision.py`: các hàm tiền xử lý ảnh
-- `utils/helpers.py`: các hàm hỗ trợ
-- `data/`: dữ liệu ảnh đã gán nhãn
-- `models/`: model đã huấn luyện
-- `output_cells/`: ảnh ô số xuất ra để gán nhãn
+## Train CNN
 
-## Lưu ý
+```bash
+python models/train_cnn.py
+```
 
-- Nên giữ ảnh gốc rõ nét, vuông góc và đủ sáng để tăng độ chính xác
-- `data/`, `models/`, `output_cells/` và `cell_imgs.npy` là dữ liệu sinh ra trong quá trình làm việc, thường không cần đẩy lên GitHub
-- Nếu nhận diện chưa tốt, hãy bổ sung dữ liệu thật và train lại model
+Model moi duoc luu vao:
 
-## Yêu cầu môi trường
+```text
+models/cnn_sudoku.h5
+```
 
-- Python 3.9+ được khuyến nghị
-- Windows PowerShell hoặc terminal tương đương
-- Camera để chụp bảng Sudoku khi chạy `app.py`
+## File chinh
+
+- `sudoku.py`: Backtracking + MRV.
+- `app.py`: giao dien Streamlit, upload/camera, nhan dien va hien ket qua.
+- `utils/vision.py`: tim khung, nan anh, cat 81 o, tien xu ly o, ve loi giai len anh goc.
+- `save_cells.py`: gan nhan 81 o da cat.
+- `models/train_cnn.py`: train CNN tu `data/label_0..9`.

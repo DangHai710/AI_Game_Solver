@@ -1,11 +1,4 @@
 streamlit
-opencv-python
-numpy
-scikit-learn
-joblib
-icrawler
-streamlit
 opencv-python-headless
 numpy
-scikit-learn
-joblib
+tensorflow

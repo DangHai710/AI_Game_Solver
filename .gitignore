@@ -1,15 +1,16 @@
 .venv/
 __pycache__/
-*.pth
-*.pkl
+*.pyc
 
-# Generated training data and outputs
+# Generated data and scan outputs
 data/
 output_cells/
 cell_imgs.npy
 
 # Trained model artifacts
-models/
+models/*.h5
 
-# Streamlit cache and local metadata
+# Local Streamlit/runtime files
 .streamlit/
+uploads/
+streamlit_*.log

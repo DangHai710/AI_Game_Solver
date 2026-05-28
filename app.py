@@ -1,92 +1,149 @@
-import streamlit as st
+import os
+import socket
+
 import cv2
 import numpy as np
-from tensorflow.keras.models import load_model
-import os
-from utils.vision import preprocess_image, get_grid_contour, reorder
-from utils.helpers import to_ping
-from engines.sudoku import solve_sudoku
+import streamlit as st
+
+from sudoku import solve_sudoku
+from utils.vision import bgr_to_rgb, find_grid_contour, overlay_solution_on_original, split_cells, warp_grid
+
+try:
+    from tensorflow.keras.models import load_model
+except Exception:
+    load_model = None
 
 
-st.set_page_config(page_title="AI Game Solver", layout="wide")
-st.title("🧩 AI Game Solver: Sudoku")
+MODEL_PATH = "models/cnn_sudoku.h5"
+OUTPUT_DIR = "output_cells/latest"
 
-mode = st.sidebar.radio("Trò chơi:", ["Sudoku"])
 
-# Load model
-model_path = 'models/cnn_sudoku.h5'
-if os.path.exists(model_path):
-    model = load_model(model_path)
-else:
-    st.error("Chưa thấy file models/cnn_sudoku.h5! Hãy chạy train_cnn.py để huấn luyện model mới.")
+@st.cache_resource(show_spinner=False)
+def load_digit_model():
+    return load_model(MODEL_PATH, compile=False) if load_model and os.path.exists(MODEL_PATH) else None
 
-img_file = st.camera_input("Quét bảng")
 
-if img_file:
-    file_bytes = np.frombuffer(img_file.read(), np.uint8)
-    img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-    # Tiền xử lý: chỉ lấy 1 ảnh trắng đen duy nhất
-    bw_img = preprocess_image(img)
-    st.image(bw_img, caption="1. Ảnh trắng đen sau tiền xử lý")
+def lan_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "IP-may-tinh"
 
-    # Tìm contour trên ảnh trắng đen
-    contours, _ = cv2.findContours(bw_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    grid_con = get_grid_contour(contours)
 
-    if grid_con.size != 0:
-        # Vẽ contour lên ảnh gốc
-        img_contour = img.copy()
-        cv2.drawContours(img_contour, [grid_con], -1, (0,255,0), 3)
-        st.image(img_contour, caption="2. Ảnh gốc với contour khung Sudoku")
+def decode_image(file):
+    if file is None:
+        return None
+    data = np.frombuffer(file.getvalue(), np.uint8)
+    return cv2.imdecode(data, cv2.IMREAD_COLOR)
 
-        grid_con_ordered = reorder(grid_con)
-        pts1 = np.float32(grid_con_ordered)
-        pts2 = np.float32([[0, 0], [450, 0], [450, 450], [0, 450]])
-        M = cv2.getPerspectiveTransform(pts1, pts2)
-        # Nắn thẳng trên ảnh gốc
-        warped_color = cv2.warpPerspective(img, M, (450, 450))
-        # Tiền xử lý lại trên ảnh nắn thẳng
-        warped = preprocess_image(warped_color)
-        st.image(warped, caption="3. Ảnh Sudoku đã nắn thẳng (trắng đen)")
 
-        # Cắt ô số ngay sau khi nắn thẳng
-        size = 9 if mode == "Sudoku" else 6
-        side = 450 // size
-        cell_imgs = []
-        for i in range(size):
-            row_imgs = []
-            for j in range(size):
-                cell = warped[i*side:(i+1)*side, j*side:(j+1)*side]
-                cell = cv2.resize(cell, (28, 28), interpolation=cv2.INTER_AREA)
-                _, cell_bin = cv2.threshold(cell, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                cell_bin = cv2.bitwise_not(cell_bin)
-                row_imgs.append(cell_bin)
-            cell_imgs.append(row_imgs)
-        # Hiển thị từng ô số nhỏ
-        st.write("4. Các ô số sau khi cắt ra:")
-        for i in range(size):
-            cols = st.columns(size)
-            for j in range(size):
-                cols[j].image(cell_imgs[i][j], width=40)
+def save_cells(cells):
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    arr = np.array([[cells[r][c]["display"] for c in range(9)] for r in range(9)], dtype=np.uint8)
+    np.save("cell_imgs.npy", arr)
+    for r in range(9):
+        for c in range(9):
+            cv2.imwrite(os.path.join(OUTPUT_DIR, f"cell_{r}_{c}.png"), arr[r][c])
 
-        # Nút giải sudoku chỉ nhận diện số và giải, không cắt lại ảnh
-        if st.button(f"Giải {mode}"):
-            res = []
-            for i in range(size):
-                for j in range(size):
-                    cell_bin = cell_imgs[i][j]
-                    feat = cell_bin.reshape(1, 28, 28, 1) / 255.0
-                    pred = model.predict(feat)
-                    res.append(int(np.argmax(pred)))
-            board = np.array(res).reshape(size, size)
-            st.write("Dữ liệu nhận diện:")
-            st.write(board)
-            # Lưu cell_imgs ra file để gán nhãn và huấn luyện sau này
-            np.save('cell_imgs.npy', cell_imgs)
-            st.success('Đã lưu cell_imgs.npy. Bạn có thể chạy save_cells.py để gán nhãn và lưu ảnh.')
-            if mode == "Sudoku":
-                if solve_sudoku(board):
-                    st.success("Lời giải:")
-                    st.table(board)
-    else:
-        st.warning("Không nhận diện được khung Sudoku. Hãy đảm bảo bảng vuông góc, đủ sáng và chiếm phần lớn khung hình!")
+
+def recognize(cells, model, threshold):
+    board = np.zeros((9, 9), dtype=np.int32)
+    conf = np.zeros((9, 9), dtype=np.float32)
+    batch, pos = [], []
+
+    for r in range(9):
+        for c in range(9):
+            cell = cells[r][c]
+            if cell["is_empty"] or (cell["ink_ratio"] < 0.02 and cell.get("component_count", 0) >= 2):
+                continue
+            batch.append(cell["model"])
+            pos.append((r, c))
+
+    if batch:
+        preds = model.predict(np.array(batch), verbose=0)
+        for (r, c), pred in zip(pos, preds):
+            digit, score = int(np.argmax(pred)), float(np.max(pred))
+            conf[r, c] = score
+            if digit and score >= threshold:
+                board[r, c] = digit
+    return board, conf
+
+
+def board_image(board):
+    img = np.full((450, 450, 3), 255, np.uint8)
+    for i in range(10):
+        thick = 3 if i % 3 == 0 else 1
+        cv2.line(img, (0, i * 50), (450, i * 50), (210, 210, 210), thick)
+        cv2.line(img, (i * 50, 0), (i * 50, 450), (210, 210, 210), thick)
+    for r in range(9):
+        for c in range(9):
+            if board[r][c]:
+                cv2.putText(img, str(int(board[r][c])), (c * 50 + 15, r * 50 + 37), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (20, 20, 20), 2)
+    return img
+
+
+st.set_page_config(page_title="AI Game Solver - Sudoku", layout="wide")
+st.title("AI Game Solver: Sudoku")
+
+with st.sidebar:
+    st.header("Chay qua LAN")
+    st.code("streamlit run app.py --server.address 0.0.0.0 --server.port 8501")
+    st.caption(f"Dien thoai cung Wi-Fi/LAN mo: http://{lan_ip()}:8501")
+    threshold = st.slider("Nguong tin cay", 0.1, 0.95, 0.75, 0.05)
+
+upload_tab, camera_tab = st.tabs(["Chon anh de upload", "Camera truc tiep"])
+with upload_tab:
+    image = decode_image(st.file_uploader("Chon anh tu may tinh/dien thoai", type=["jpg", "jpeg", "png"]))
+with camera_tab:
+    cam = decode_image(st.camera_input("Chup truc tiep neu trinh duyet cho phep camera"))
+    image = cam if cam is not None else image
+
+if image is None:
+    st.info("Hay upload anh Sudoku hoac chup truc tiep bang camera.")
+    st.stop()
+
+model = load_digit_model()
+if model is None:
+    st.warning("Chua thay models/cnn_sudoku.h5. Ban van cat duoc 81 o, nhung can model de giai Sudoku.")
+contour = find_grid_contour(image)
+if contour is None:
+    st.error("Khong tim duoc khung Sudoku. Hay crop sat bang hon hoac chup thang goc hon.")
+    st.image(bgr_to_rgb(image), caption="Anh goc", use_container_width=True)
+    st.stop()
+
+warped, _ = warp_grid(image, contour)
+cells = split_cells(warped)
+save_cells(cells)
+
+st.subheader("Anh goc")
+st.image(bgr_to_rgb(image), use_container_width=True)
+
+st.subheader("81 o da cat")
+for r in range(9):
+    cols = st.columns(9)
+    for c in range(9):
+        cols[c].image(cells[r][c]["display"], width=52)
+st.caption("Da luu cell_imgs.npy va output_cells/latest/cell_r_c.png de phuc vu gan nhan/train.")
+
+if st.button("Giai Sudoku", type="primary", disabled=model is None):
+    board, confidence = recognize(cells, model, threshold)
+    solved = board.copy()
+    ok = solve_sudoku(solved)
+
+    left, right = st.columns(2)
+    with left:
+        st.subheader("Cac so da nhan dien")
+        st.image(board_image(board), use_container_width=True)
+    with right:
+        st.subheader("Anh goc da dien so con thieu")
+        if ok:
+            st.image(bgr_to_rgb(overlay_solution_on_original(image, contour, board, solved)), use_container_width=True)
+        else:
+            st.error("Board nhan dien dang mau thuan, can tang nguong tin cay hoac train lai data.")
+
+    with st.expander("Do tin cay tung o"):
+        st.dataframe(np.round(confidence, 3), use_container_width=True)
