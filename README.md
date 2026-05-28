@@ -1,8 +1,8 @@
-# AI Game Solver - Sudoku
+## AI Game Solver - Sudoku
 
-Ung dung Streamlit dung OpenCV va CNN de quet anh Sudoku, cat 81 o, nhan dien chu so va giai bang Backtracking + MRV.
+Ứng dụng Streamlit dùng OpenCV và CNN để quét ảnh Sudoku, cắt 81 ô, nhận diện chữ số và giải bằng Backtracking + MRV.
 
-## Cau truc
+## Cấu trúc
 
 ```text
 AI_Game_Solver/
@@ -19,13 +19,10 @@ AI_Game_Solver/
 ├─ save_cells.py
 ├─ .gitignore
 ├─ README.md
-├─ reports/
-│  ├─ bao_cao_sudoku.md
-│  └─ bao_cao_sudoku.docx
 └─ requirements.txt
 ```
 
-## Cai dat
+## Cài đặt
 
 ```bash
 python -m venv .venv
@@ -33,68 +30,68 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Chay web app
+## Chạy web app
 
-Chay tren may tinh:
+Chạy trên máy tính:
 
 ```bash
 streamlit run app.py
 ```
 
-Cho dien thoai cung Wi-Fi/LAN truy cap:
+Cho điện thoại cùng Wi‑Fi/LAN truy cập:
 
 ```bash
 streamlit run app.py --server.address 0.0.0.0 --server.port 8501
 ```
 
-Mo dia chi LAN hien trong sidebar, vi du:
+Mở địa chỉ LAN hiển thị trong sidebar, ví dụ:
 
 ```text
 http://192.168.x.x:8501
 ```
 
-## Luong su dung
+## Hướng sử dụng
 
-1. Tab `Chon anh de upload`: chon anh tu may tinh hoac dien thoai. Tren dien thoai, trinh duyet se cho chon chup anh moi hoac lay tu thu vien.
-2. Tab `Camera truc tiep`: dung camera truc tiep neu trinh duyet cho phep. Tren dien thoai co the bi chan neu app chay HTTP LAN.
-3. Sau khi co anh, app hien `Anh goc` va `81 o da cat`.
-4. App tu dong luu 81 o vao `cell_imgs.npy` va `output_cells/latest/cell_r_c.png`.
-5. Bam `Giai Sudoku` de hien board so da nhan dien va anh goc da dien cac so con thieu.
-6. Mo `Do tin cay tung o` de xem confidence phuc vu bao cao va debug.
+1. Tab "Chọn ảnh để upload": chọn ảnh từ máy tính hoặc điện thoại. Trình duyệt trên điện thoại cho phép chụp mới hoặc lấy ảnh từ thư viện.
+2. Tab "Camera trực tiếp": dùng camera nếu trình duyệt cho phép. Trên điện thoại có thể bị chặn nếu app chạy qua HTTP (không HTTPS).
+3. Sau khi có ảnh, app hiển thị "Ảnh gốc" và "81 ô đã cắt".
+4. App tự động lưu 81 ô vào `cell_imgs.npy` và `output_cells/latest/cell_r_c.png`.
+5. Bấm "Giai Sudoku" để hiển thị bảng số đã nhận diện và ảnh gốc đã điền số còn thiếu.
+6. Mở "Độ tin cậy từng ô" để xem confidence phục vụ báo cáo và debug.
 
-## Xu ly anh
+## Xử lý ảnh
 
-- `utils/vision.py` tim contour Sudoku bang threshold thich nghi va contour lon nhat co 4 dinh.
-- Bang duoc nan ve anh vuong `450x450`.
-- Moi o duoc cat theo luoi 9x9, sau do lay 80% vung trung tam de tranh dinh duong vien.
-- Anh o duoc threshold, loc connected component de loai nhieu, resize ve `28x28` cho CNN.
+- `utils/vision.py` tìm contour Sudoku bằng threshold thích nghi và chọn contour lớn nhất có 4 đỉnh.
+- Lưới được biến đổi về ảnh vuông `450x450`.
+- Mỗi ô được cắt theo lưới 9x9, sau đó lấy 80% vùng trung tâm để tránh viền đường.
+- Ảnh ô được threshold, lọc connected components để loại nhiễu, resize về `28x28` cho CNN.
 
-## Gan nhan data
+## Gán nhãn dữ liệu
 
-Sau khi app tao `cell_imgs.npy`, chay:
+Sau khi app tạo `cell_imgs.npy`, chạy:
 
 ```bash
 python save_cells.py
 ```
 
-Bam phim `0-9` de luu o hien tai vao `data/label_x`, bam `Space` de bo qua, `ESC` de dung.
+Bấm phím `0-9` để lưu ô hiện tại vào `data/label_x`, bấm `Space` để bỏ qua, `ESC` để dừng.
 
-## Train CNN
+## Huấn luyện CNN
 
 ```bash
 python models/train_cnn.py
 ```
 
-Model moi duoc luu vao:
+Model sẽ được lưu vào:
 
 ```text
 models/cnn_sudoku.h5
 ```
 
-## File chinh
+## File chính
 
 - `sudoku.py`: Backtracking + MRV.
-- `app.py`: giao dien Streamlit, upload/camera, nhan dien va hien ket qua.
-- `utils/vision.py`: tim khung, nan anh, cat 81 o, tien xu ly o, ve loi giai len anh goc.
-- `save_cells.py`: gan nhan 81 o da cat.
-- `models/train_cnn.py`: train CNN tu `data/label_0..9`.
+- `app.py`: giao diện Streamlit, upload/camera, nhận diện và hiển thị kết quả.
+- `utils/vision.py`: tìm khung, xử lý ảnh, cắt 81 ô, tiền xử lý ô, vẽ lời giải lên ảnh gốc.
+- `save_cells.py`: gán nhãn 81 ô đã cắt.
+- `models/train_cnn.py`: huấn luyện CNN từ `data/label_0..9`.
